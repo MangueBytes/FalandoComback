@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body ng-app="myApp">
+    <h1>Buscar CEP - Front-End</h1>
+    <div id="saida"></div>
+
+    <script type="text/babel">
+      class CepForm extends React.Component {
+        constructor(props) {
+          super(props);
+          this.state = {
+            cep: '',
+            resultado: null,
+            error: null
+          };
+          this.handleChange = this.handleChange.bind(this);
+          this.handleSubmit = this.handleSubmit.bind(this);
+        }
+
+        handleChange(event) {
+          this.setState({cep: event.target.value});
+        }
+
+        handleSubmit(event) {
+          event.preventDefault();
+          const { cep } = this.state;
+          const cepNumerico = cep.replace(/\D/g, '');
+          
+          if (cepNumerico.length !== 8) {
+            this.setState({error: 'CEP deve conter 8 dígitos', resultado: null});
+            return;
+          }
+
+          fetch(`http://localhost:3000/cep/${cepNumerico}`)
+            .then(response => {
+              if (!response.ok) {
+                return response.json().then(err => { throw err; });
+              }
+              return response.json();
+            })
+            .then(data => {
+              this.setState({
+                resultado: data,
+                error: null
+              });
+            })
+            .catch(error => {
+              this.setState({
+                error: error.error || 'Erro ao buscar CEP',
+                resultado: null
+              });
+            });
+        }
+
+        render() {
+          const { cep, resultado, error } = this.state;
+          
+          return (
+            <div>
+              <form onSubmit={this.handleSubmit}>
+                <p>Informe um CEP:</p>
+                <input 
+                  type="text" 
+                  value={cep}
+                  onChange={this.handleChange}
+                  placeholder="Ex: 01002000"
+                />
+                <button type="submit">Buscar</button>
+              </form>
+              
+              {error && <p style={{color: 'red'}}>{error}</p>}
+              
+              {resultado && (
+                <div>
+                  <h2>Resultado:</h2>
+                  <p>CEP: {resultado.cep}</p>
+                  <p>Logradouro: {resultado.logradouro}</p>
+                  <p>Bairro: {resultado.bairro}</p>
+                  <p>Cidade: {resultado.localidade}</p>
+                  <p>Estado: {resultado.uf}</p>
+                </div>
+              )}
+            </div>
+          );
+        }
+      }
+
+      ReactDOM.render(<CepForm />, document.getElementById('saida'));
+    </script>
+  </body>
+</html>
