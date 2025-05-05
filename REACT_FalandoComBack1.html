@@ -5,8 +5,7 @@
     <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   </head>
-  <body ng-app="myApp">
-    <h1>Buscar CEP - Front-End</h1>
+  <body>
     <div id="saida"></div>
 
     <script type="text/babel">
@@ -16,7 +15,8 @@
           this.state = {
             cep: '',
             resultado: null,
-            error: null
+            error: null,
+            loading: false // Adicionamos estado de loading
           };
           this.handleChange = this.handleChange.bind(this);
           this.handleSubmit = this.handleSubmit.bind(this);
@@ -26,7 +26,7 @@
           this.setState({cep: event.target.value});
         }
 
-        handleSubmit(event) {
+        async handleSubmit(event) {
           event.preventDefault();
           const { cep } = this.state;
           const cepNumerico = cep.replace(/\D/g, '');
@@ -36,53 +36,79 @@
             return;
           }
 
-          fetch(`http://localhost:3000/cep/${cepNumerico}`)
-            .then(response => {
-              if (!response.ok) {
-                return response.json().then(err => { throw err; });
-              }
-              return response.json();
-            })
-            .then(data => {
-              this.setState({
-                resultado: data,
-                error: null
-              });
-            })
-            .catch(error => {
-              this.setState({
-                error: error.error || 'Erro ao buscar CEP',
-                resultado: null
-              });
+          this.setState({loading: true, error: null});
+          
+          try {
+            // Faz a requisição para nosso back-end que vai consultar a API ViaCEP
+            const response = await fetch(`http://localhost:3000/cep/${cepNumerico}`);
+            
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'Erro ao buscar CEP');
+            }
+            
+            const data = await response.json();
+            this.setState({
+              resultado: data,
+              error: null
             });
+          } catch (error) {
+            this.setState({
+              error: error.message,
+              resultado: null
+            });
+          } finally {
+            this.setState({loading: false});
+          }
         }
 
         render() {
-          const { cep, resultado, error } = this.state;
+          const { cep, resultado, error, loading } = this.state;
           
           return (
-            <div>
-              <form onSubmit={this.handleSubmit}>
-                <p>Informe um CEP:</p>
-                <input 
-                  type="text" 
-                  value={cep}
-                  onChange={this.handleChange}
-                  placeholder="Ex: 01002000"
-                />
-                <button type="submit">Buscar</button>
+            <div style={{padding: '20px', maxWidth: '500px', margin: '0 auto'}}>
+              <h1>Consulta de CEP</h1>
+              <form onSubmit={this.handleSubmit} style={{marginBottom: '20px'}}>
+                <div style={{marginBottom: '10px'}}>
+                  <label>
+                    Digite o CEP (apenas números):
+                    <input 
+                      type="text" 
+                      value={cep}
+                      onChange={this.handleChange}
+                      placeholder="Ex: 01001000"
+                      style={{marginLeft: '10px', padding: '5px'}}
+                    />
+                  </label>
+                </div>
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  style={{padding: '5px 15px', cursor: 'pointer'}}
+                >
+                  {loading ? 'Buscando...' : 'Consultar'}
+                </button>
               </form>
               
-              {error && <p style={{color: 'red'}}>{error}</p>}
+              {error && (
+                <div style={{color: 'red', margin: '10px 0'}}>
+                  Erro: {error}
+                </div>
+              )}
               
               {resultado && (
-                <div>
-                  <h2>Resultado:</h2>
-                  <p>CEP: {resultado.cep}</p>
-                  <p>Logradouro: {resultado.logradouro}</p>
-                  <p>Bairro: {resultado.bairro}</p>
-                  <p>Cidade: {resultado.localidade}</p>
-                  <p>Estado: {resultado.uf}</p>
+                <div style={{
+                  border: '1px solid #ccc',
+                  padding: '15px',
+                  borderRadius: '5px',
+                  backgroundColor: '#f9f9f9'
+                }}>
+                  <h2>Dados do CEP:</h2>
+                  <p><strong>CEP:</strong> {resultado.cep}</p>
+                  <p><strong>Logradouro:</strong> {resultado.logradouro || 'Não informado'}</p>
+                  <p><strong>Bairro:</strong> {resultado.bairro || 'Não informado'}</p>
+                  <p><strong>Cidade:</strong> {resultado.localidade}</p>
+                  <p><strong>Estado:</strong> {resultado.uf}</p>
                 </div>
               )}
             </div>
